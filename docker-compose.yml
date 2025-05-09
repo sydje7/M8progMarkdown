@@ -1,0 +1,38 @@
+services:
+    # Wordpress, nginx and php
+    wordpress:
+        image: wordpress:php8.4
+        ports:
+            - 80:80
+        environment:
+            WORDPRESS_DB_HOST: '${DB_HOST}'
+            WORDPRESS_DB_NAME: '${DB_NAME}'
+            WORDPRESS_DB_USER: '${DB_USERNAME}'
+            WORDPRESS_DB_PASSWORD: '${DB_PASSWORD}'
+        volumes:
+            - ./themes:/var/www/html/wp-content/themes
+            - ./plugins:/var/www/html/wp-content/plugins
+            - ./uploads:/var/www/html/wp-content/uploads
+    # Database
+    mariadb:
+        image: mariadb:latest
+        environment:
+            MYSQL_DATABASE: '${DB_NAME}'
+            MYSQL_USER: '${DB_USERNAME}'
+            MYSQL_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ROOT_PASSWORD: '${DB_ROOT_PASSWORD}'
+        ports:
+            - 3310:3306
+        volumes:
+            - db:/var/lib/mysql
+    # PhpMyAdmin
+    phpmyadmin:
+        image: phpmyadmin
+        environment:
+            PMA_HOST: '${DB_HOST}'
+            PMA_USER: '${DB_USERNAME}'
+            PMA_PASSWORD: '${DB_PASSWORD}'
+        ports:
+            - "1089:80"
+volumes:
+    db: {}
