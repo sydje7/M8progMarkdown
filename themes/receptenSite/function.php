@@ -28,3 +28,10 @@ function register_ingredient_taxonomy() {
     );
 }
 add_action('init', 'register_ingredient_taxonomy');
+
+function recepten_thema_setup() {
+    register_nav_menus([
+        'hoofdmenu' => __('Hoofdmenu', 'recepten')
+    ]);
+}
+add_action('after_setup_theme', 'recepten_thema_setup');
