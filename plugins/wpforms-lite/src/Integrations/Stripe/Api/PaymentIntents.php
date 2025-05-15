@@ -4,9 +4,7 @@ namespace WPForms\Integrations\Stripe\Api;
 
 use WPForms\Vendor\Stripe\Mandate;
 use WPForms\Vendor\Stripe\SetupIntent;
-use WPForms\Vendor\Stripe\Customer;
 use WPForms\Vendor\Stripe\PaymentIntent;
-use WPForms\Vendor\Stripe\PaymentMethod;
 use WPForms\Vendor\Stripe\Stripe;
 use WPForms\Vendor\Stripe\Subscription;
 use WPForms\Vendor\Stripe\Refund;
@@ -17,6 +15,7 @@ use WPForms\Integrations\Stripe\Helpers;
 use WPForms\Helpers\Crypto;
 use Exception;
 use WPForms\Vendor\Stripe\Charge;
+use WPForms\Vendor\Stripe\CountrySpec;
 
 /**
  * Stripe PaymentIntents API.
@@ -307,12 +306,14 @@ class PaymentIntents extends Common implements ApiInterface {
 	 * Refund a payment.
 	 *
 	 * @since 1.8.4
+	 * @since 1.8.8.2 $args param was added.
 	 *
 	 * @param string $payment_intent_id PaymentIntent id.
+	 * @param array  $args              Additional arguments (e.g. 'mode', 'metadata', 'reason' ).
 	 *
 	 * @return bool
 	 */
-	public function refund_payment( $payment_intent_id ) {
+	public function refund_payment( string $payment_intent_id, array $args = [] ): bool {
 
 		try {
 
@@ -322,15 +323,19 @@ class PaymentIntents extends Common implements ApiInterface {
 				return false;
 			}
 
-			$refund = Refund::create(
-				[
-					'payment_intent' => $payment_intent_id,
-					'metadata'       => [
-						'refunded_by' => 'wpforms_dashboard',
-					],
-				],
-				Helpers::get_auth_opts()
-			);
+			$defaults = [
+				'payment_intent' => $payment_intent_id,
+			];
+
+			if ( isset( $args['mode'] ) ) {
+				$auth_opts = [ 'api_key' => Helpers::get_stripe_key( 'secret', $args['mode'] ) ];
+
+				unset( $args['mode'] );
+			}
+
+			$args = wp_parse_args( $args, $defaults );
+
+			$refund = Refund::create( $args, $auth_opts ?? Helpers::get_auth_opts() );
 
 			if ( ! $refund ) {
 				return false;
@@ -439,31 +444,25 @@ class PaymentIntents extends Common implements ApiInterface {
 		}
 
 		$defaults = [
-			'payment_method' => $this->payment_method_id,
+			'payment_method'            => $this->payment_method_id,
+			'confirm'                   => true,
+			'automatic_payment_methods' => [
+				'enabled'         => true,
+				'allow_redirects' => 'never',
+			],
 		];
 
 		$args = wp_parse_args( $args, $defaults );
 
-		if ( Helpers::is_payment_element_enabled() ) {
-			$args['automatic_payment_methods'] = [ 'enabled' => true ];
-		} else {
-			$args['confirm'] = true;
-		}
-
 		try {
 
 			if ( isset( $args['customer_email'] ) || isset( $args['customer_name'] ) ) {
-
-				$name  = $args['customer_name'] ?? '';
-				$email = $args['customer_email'] ?? '';
-
-				$this->set_customer( $email, $name );
-				$this->attach_customer_to_payment();
+				$this->set_customer( $args['customer_email'] ?? '', $args['customer_name'] ?? '', $args['customer_address'] ?? [] );
 
 				$args['customer'] = $this->get_customer( 'id' );
-
-				unset( $args['customer_email'], $args['customer_name'] );
 			}
+
+			unset( $args['customer_email'], $args['customer_name'], $args['customer_address'] );
 
 			$this->intent = PaymentIntent::create( $args, Helpers::get_auth_opts() );
 
@@ -544,7 +543,7 @@ class PaymentIntents extends Common implements ApiInterface {
 	 *
 	 * @param array $args Subscription payment arguments.
 	 */
-	protected function charge_subscription( $args ) { // phpcs:ignore Generic.Metrics.CyclomaticComplexity.TooHigh
+	protected function charge_subscription( $args ) { // phpcs:ignore Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
 		if ( empty( $this->payment_method_id ) ) {
 			$this->error = esc_html__( 'Stripe subscription stopped, missing PaymentMethod id.', 'wpforms-lite' );
@@ -569,36 +568,22 @@ class PaymentIntents extends Common implements ApiInterface {
 			$sub_args['application_fee_percent'] = $args['application_fee_percent'];
 		}
 
+		if ( isset( $args['description'] ) ) {
+			$sub_args['description'] = $args['description'];
+		}
+
 		try {
+			$this->set_customer( $args['email'], $args['customer_name'] ?? '', $args['customer_address'] ?? [] );
 
-			$name = $args['customer_name'] ?? '';
+			$sub_args['customer']         = $this->get_customer( 'id' );
+			$sub_args['payment_behavior'] = 'default_incomplete';
+			$sub_args['off_session']      = true;
+			$sub_args['payment_settings'] = [
+				'save_default_payment_method' => 'on_subscription',
+			];
 
-			$this->set_customer( $args['email'], $name );
-			$sub_args['customer'] = $this->get_customer( 'id' );
-
-			if ( Helpers::is_payment_element_enabled() ) {
-
-				$sub_args['payment_behavior'] = 'default_incomplete';
-				$sub_args['off_session']      = true;
-				$sub_args['payment_settings'] = [
-					'payment_method_types'        => [ 'card', 'link' ],
-					'save_default_payment_method' => 'on_subscription',
-				];
-			} else {
-
-				$new_payment_method = $this->attach_customer_to_payment();
-
-				if ( is_null( $new_payment_method ) ) {
-					return;
-				}
-
-				// Check whether a default PaymentMethod needs to be explicitly set.
-				$selected_payment_method_id = $this->select_subscription_default_payment_method( $new_payment_method );
-
-				if ( $selected_payment_method_id ) {
-					// Explicitly set a PaymentMethod for this Subscription because default Customer's PaymentMethod cannot be used.
-					$sub_args['default_payment_method'] = $selected_payment_method_id;
-				}
+			if ( Helpers::is_link_supported() ) {
+				$sub_args['payment_settings']['payment_method_types'] = [ 'card', 'link' ];
 			}
 
 			// Create the subscription.
@@ -652,34 +637,6 @@ class PaymentIntents extends Common implements ApiInterface {
 		// Saving customer and subscription info is important for a future form meta update.
 		$this->customer     = $this->intent->customer;
 		$this->subscription = $this->intent->invoice->subscription;
-	}
-
-	/**
-	 * Attach customer to payment method.
-	 *
-	 * @since 1.8.2
-	 *
-	 * @return PaymentMethod|null
-	 */
-	private function attach_customer_to_payment() {
-
-		try {
-
-			$payment_method = PaymentMethod::retrieve(
-				$this->payment_method_id,
-				Helpers::get_auth_opts()
-			);
-
-			// Attaching a PaymentMethod to a Customer validates CVC and throws an exception if PaymentMethod is invalid.
-			$payment_method->attach( [ 'customer' => $this->get_customer( 'id' ) ] );
-
-			return $payment_method;
-		} catch ( Exception $e ) {
-
-			$this->handle_exception( $e );
-		}
-
-		return null;
 	}
 
 	/**
@@ -761,6 +718,7 @@ class PaymentIntents extends Common implements ApiInterface {
 			[
 				'action_required'              => true,
 				'payment_intent_client_secret' => $intent->client_secret,
+				'payment_method_id'            => $this->payment_method_id,
 			]
 		);
 	}
@@ -778,126 +736,9 @@ class PaymentIntents extends Common implements ApiInterface {
 			[
 				'action_required'              => true,
 				'payment_intent_client_secret' => $intent->client_secret,
+				'payment_method_id'            => $this->payment_method_id,
 			]
 		);
-	}
-
-	/**
-	 * Select 'default_payment_method' for Subscription if it needs to be explicitly set
-	 * and cleanup remote PaymentMethods in the process.
-	 *
-	 * @since 1.8.2
-	 *
-	 * @param PaymentMethod $new_payment_method PaymentMethod object.
-	 *
-	 * @return string
-	 *
-	 * @throws Exception In case of Stripe API error.
-	 */
-	protected function select_subscription_default_payment_method( $new_payment_method ) {
-
-		// Stripe does not set the first PaymentMethod attached to a Customer as Customer's 'default_payment_method'.
-		// Setting it manually if Customer's 'default_payment_method' is empty.
-		if ( isset( $new_payment_method->id ) && empty( $this->customer->invoice_settings->default_payment_method ) ) {
-			$this->update_remote_customer_default_payment_method( $new_payment_method->id );
-			// In this case Subscription's 'default_payment_method' doesn't have to be explicitly set and defaults to Customer's 'default_payment_method'.
-			return '';
-		}
-
-		// Return early if not a credit card is used for a payment ( e.g. Link ).
-		if ( ! isset( $new_payment_method->card->fingerprint ) ) {
-			return '';
-		}
-
-		$default_payment_method = PaymentMethod::retrieve(
-			$this->customer->invoice_settings->default_payment_method,
-			Helpers::get_auth_opts()
-		);
-
-		// Update Customer's 'default_payment_method' with a new PaymentMethod if it has the same fingerprint.
-		if ( isset( $new_payment_method->card->fingerprint, $default_payment_method->card->fingerprint ) && $new_payment_method->card->fingerprint === $default_payment_method->card->fingerprint ) {
-			$this->update_remote_customer_default_payment_method( $new_payment_method->id );
-			$default_payment_method->detach();
-			// In this case Subscription's 'default_payment_method' doesn't have to be explicitly set and defaults to Customer's 'default_payment_method'.
-			return '';
-		}
-
-		// In case Customer's 'default_payment_method' is set and its fingerprint doesn't match with a new PaymentMethod, several things need to be done:
-		// - Scan all active subscriptions for 'default_payment_method' with a same fingerprint as a new PaymentMethod.
-		// - Change all matching subscriptions 'default_payment_method' to a new PaymentMethod.
-		// - Delete all PaymentMethods previously set as 'default_payment_method' for matching subscriptions.
-		$this->detach_remote_subscriptions_duplicated_payment_methods( $new_payment_method );
-
-		// In this case Subscription's 'default_payment_method' has to be explicitly set
-		// because Customer's 'default_payment_method' contains a different PaymentMethod and cannot be defaulted to.
-		return $new_payment_method->id;
-	}
-
-	/**
-	 * Update 'default_payment_method' for a Customer stored on a Stripe side.
-	 *
-	 * @since 1.8.2
-	 *
-	 * @param string $payment_method_id PaymentMethod id.
-	 *
-	 * @throws Exception If a Customer fails to update.
-	 */
-	protected function update_remote_customer_default_payment_method( $payment_method_id ) {
-
-		Customer::update(
-			$this->get_customer( 'id' ),
-			[
-				'invoice_settings' => [
-					'default_payment_method' => $payment_method_id,
-				],
-			],
-			Helpers::get_auth_opts()
-		);
-	}
-
-	/**
-	 * Detach all active Subscriptions PaymentMethods having the same fingerprint as a given PaymentMethod.
-	 *
-	 * @since 1.8.2
-	 *
-	 * @param PaymentMethod $new_payment_method PaymentMethod object.
-	 *
-	 * @throws Exception In case of Stripe API error.
-	 */
-	protected function detach_remote_subscriptions_duplicated_payment_methods( $new_payment_method ) {
-
-		$subscriptions = Subscription::all(
-			[
-				'customer' => $this->get_customer( 'id' ),
-				'status'   => 'active',
-				'limit'    => 100, // Maximum limit allowed by Stripe (https://stripe.com/docs/api/subscriptions/list#list_subscriptions-limit).
-				'expand'   => [ 'data.default_payment_method' ],
-			],
-			Helpers::get_auth_opts()
-		);
-
-		$detach_methods = [];
-
-		foreach ( $subscriptions as $subscription ) {
-
-			if ( empty( $subscription->default_payment_method ) ) {
-				continue;
-			}
-
-			if ( $new_payment_method->card->fingerprint === $subscription->default_payment_method->card->fingerprint ) {
-
-				Subscription::update(
-					$subscription->id,
-					[ 'default_payment_method' => $new_payment_method->id ],
-					Helpers::get_auth_opts()
-				);
-				$detach_methods[ $subscription->default_payment_method->id ] = $subscription->default_payment_method;
-			}
-		}
-
-		foreach ( $detach_methods as $detach_method ) {
-			$detach_method->detach();
-		}
 	}
 
 	/**
@@ -909,7 +750,7 @@ class PaymentIntents extends Common implements ApiInterface {
 	 */
 	private function set_bypass_captcha_3dsecure_token() {
 
-		$form_data = wpforms()->get( 'process' )->form_data;
+		$form_data = wpforms()->obj( 'process' )->form_data;
 
 		// Set token only if captcha is enabled for the form.
 		if ( empty( $form_data['settings']['recaptcha'] ) ) {
@@ -1034,6 +875,40 @@ class PaymentIntents extends Common implements ApiInterface {
 
 			wpforms_log(
 				'Stripe: Unable to create Setup Intent.',
+				$e->getMessage(),
+				[
+					'type' => [ 'payment', 'error' ],
+				]
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Get Country Specs.
+	 *
+	 * @since 1.9.1
+	 *
+	 * @param string $country Country code.
+	 * @param array  $args    Additional arguments.
+	 *
+	 * @throws ApiErrorException If the request fails.
+	 *
+	 * @return CountrySpec|null
+	 */
+	public function get_country_specs( string $country, array $args = [] ) {
+
+		try {
+			if ( isset( $args['mode'] ) ) {
+				$auth_opts = [ 'api_key' => Helpers::get_stripe_key( 'secret', $args['mode'] ) ];
+			}
+
+			return CountrySpec::retrieve( $country, $auth_opts ?? Helpers::get_auth_opts() );
+		} catch ( Exception $e ) {
+
+			wpforms_log(
+				'Stripe: Unable to get Country specs.',
 				$e->getMessage(),
 				[
 					'type' => [ 'payment', 'error' ],

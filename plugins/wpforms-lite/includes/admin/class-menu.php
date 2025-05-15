@@ -36,7 +36,7 @@ class WPForms_Admin_Menu {
 	public function register_menus() {
 
 		$manage_cap = wpforms_get_capability_manage_options();
-		$access     = wpforms()->get( 'access' );
+		$access     = wpforms()->obj( 'access' );
 
 		if ( ! method_exists( $access, 'get_menu_cap' ) ) {
 			return;
@@ -67,7 +67,7 @@ class WPForms_Admin_Menu {
 		add_submenu_page(
 			'wpforms-overview',
 			esc_html__( 'WPForms Builder', 'wpforms-lite' ),
-			esc_html__( 'Add New', 'wpforms-lite' ),
+			esc_html__( 'Add New Form', 'wpforms-lite' ),
 			$access->get_menu_cap( [ 'create_forms', 'edit_forms' ] ),
 			'wpforms-builder',
 			[ $this, 'admin_page' ]
@@ -253,19 +253,6 @@ class WPForms_Admin_Menu {
 	}
 
 	/**
-	 * Alias method for backward compatibility.
-	 *
-	 * @since 1.7.4
-	 * @deprecated 1.7.8
-	 */
-	public function style_upgrade_pro_link() {
-
-		_deprecated_function( __METHOD__, '1.7.8 of the WPForms plugin', __CLASS__ . '::adjust_pro_menu_item()' );
-
-		$this->adjust_pro_menu_item();
-	}
-
-	/**
 	 * Add the PRO badge to left sidebar menu item.
 	 *
 	 * @since 1.7.8
@@ -287,7 +274,7 @@ class WPForms_Admin_Menu {
 
 		global $submenu;
 
-		// Bail if plugin menu is not registered.
+		// Bail if a plugin menu is not registered.
 		if ( ! isset( $submenu['wpforms-overview'] ) ) {
 			return;
 		}
@@ -297,7 +284,7 @@ class WPForms_Admin_Menu {
 				$submenu['wpforms-overview'],
 				static function( $item ) {
 
-					return strpos( $item[2], 'https://wpforms.com/lite-upgrade' ) !== false;
+					return strpos( urldecode( $item[2] ), 'wpforms.com/lite-upgrade' ) !== false;
 				}
 			)
 		);
@@ -421,7 +408,7 @@ class WPForms_Admin_Menu {
 	 */
 	public function admin_menu_styles() {
 
-		$styles = '#adminmenu .wpforms-menu-new { color: #f18500; vertical-align: super; font-size: 9px; font-weight: 600; padding-left: 2px; }';
+		$styles = '#adminmenu .wpforms-menu-new { display: inline-block; color: #f18500; vertical-align: super; font-size: 9px; font-weight: 600; padding-inline-start: 2px; }';
 
 		if ( ! wpforms()->is_pro() ) {
 			$styles .= 'a.wpforms-sidebar-upgrade-pro { background-color: #00a32a !important; color: #fff !important; font-weight: 600 !important; }';

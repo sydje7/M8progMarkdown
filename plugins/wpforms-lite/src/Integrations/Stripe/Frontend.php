@@ -56,6 +56,10 @@ class Frontend {
 		add_action( 'elementor/frontend/after_enqueue_styles', [ $this, 'elementor_enqueues' ] );
 		add_action( 'enqueue_block_assets', [ $this, 'enqueue_block_assets' ] );
 		add_filter( 'register_block_type_args', [ $this, 'register_block_type_args' ], 20, 2 );
+
+		if ( wpforms_is_divi_editor() ) {
+			add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_styles' ], 12 );
+		}
 	}
 
 	/**
@@ -125,23 +129,37 @@ class Frontend {
 	 */
 	public function enqueue_assets() {
 
+		$min = wpforms_get_min_suffix();
+
 		if ( ! Helpers::has_stripe_keys() ) {
 			return;
 		}
 
-		$config = $this->api->get_config();
+		$config    = $this->api->get_config();
+		$in_footer = ! wpforms_is_frontend_js_header_force_load();
+
+		wp_enqueue_script(
+			'wpforms-generic-utils',
+			WPFORMS_PLUGIN_URL . "assets/js/share/utils{$min}.js",
+			[ 'jquery' ],
+			WPFORMS_VERSION,
+			$in_footer
+		);
 
 		wp_enqueue_script(
 			'stripe-js',
 			$config['remote_js_url'],
-			[ 'jquery' ]
+			[ 'jquery' ],
+			null, // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
+			$in_footer
 		);
 
 		wp_enqueue_script(
 			self::HANDLE,
 			$config['local_js_url'],
-			[ 'jquery', 'stripe-js' ],
-			WPFORMS_VERSION
+			[ 'jquery', 'stripe-js', 'wpforms-generic-utils' ],
+			WPFORMS_VERSION,
+			$in_footer
 		);
 
 		wp_localize_script(
@@ -171,7 +189,7 @@ class Frontend {
 	 */
 	public function register_block_type_args( $args, $block_type ) {
 
-		if ( $block_type !== 'wpforms/form-selector' ) {
+		if ( $block_type !== 'wpforms/form-selector' || ! is_admin() ) {
 			return $args;
 		}
 
@@ -213,30 +231,19 @@ class Frontend {
 	 * Enqueue styles.
 	 *
 	 * @since 1.8.4.1
+	 * @since 1.9.4 Become public for the action callback.
 	 */
-	private function enqueue_styles() {
+	public function enqueue_styles(): void {
 
 		if ( (int) wpforms_setting( 'disable-css', '1' ) === 3 ) {
 			return;
 		}
 
-		$config = $this->api->get_config();
-		$min    = wpforms_get_min_suffix();
+		$min = wpforms_get_min_suffix();
 
 		wp_enqueue_style(
 			self::HANDLE,
 			WPFORMS_PLUGIN_URL . "assets/css/integrations/stripe/wpforms-stripe{$min}.css",
-			[],
-			WPFORMS_VERSION
-		);
-
-		if ( ! isset( $config['local_css_url'] ) ) {
-			return;
-		}
-
-		wp_enqueue_style(
-			'wpforms-stripe',
-			$config['local_css_url'],
 			[],
 			WPFORMS_VERSION
 		);

@@ -32,7 +32,11 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 			],
 		];
 
-		// Set field to default to required.
+		$this->default_settings = [
+			'choices' => $this->defaults,
+		];
+
+		// Set field to default to the required.
 		add_filter( 'wpforms_field_new_required', [ $this, 'field_default_required' ], 10, 2 );
 
 		// Define additional field properties.
@@ -76,8 +80,8 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 		$field_id = absint( $field['id'] );
 		$choices  = ! empty( $field['choices'] ) ? $field['choices'] : [];
 
-		// Remove primary input.
-		unset( $properties['inputs']['primary'] );
+		// Remove primary input, unset for attribute for label.
+		unset( $properties['inputs']['primary'], $properties['label']['attr']['for'] );
 
 		// Set input container (ul) properties.
 		$properties['input_container'] = [
@@ -128,9 +132,16 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 	}
 
 	/**
-	 * @inheritdoc
+	 * Whether the current field can be populated dynamically.
+	 *
+	 * @since 1.9.4
+	 *
+	 * @param array $properties Field properties.
+	 * @param array $field      Current field specific data.
+	 *
+	 * @return bool
 	 */
-	public function is_dynamic_population_allowed( $properties, $field ) {
+	public function is_dynamic_population_allowed( $properties, $field ): bool {
 
 		return false;
 	}
@@ -248,6 +259,8 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 	 * @param array $field      Field settings.
 	 * @param array $deprecated Deprecated array.
 	 * @param array $form_data  Form data and settings.
+	 *
+	 * @noinspection HtmlUnknownAttribute
 	 */
 	public function field_display( $field, $deprecated, $form_data ) {
 
@@ -260,9 +273,9 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 			wpforms_html_attributes( $container['id'], $container['class'], $container['data'], $container['attr'] )
 		);
 
-			foreach ( $choices as $key => $choice ) {
-
+			foreach ( $choices as $choice ) {
 				$required = '';
+
 				if ( ! empty( $choice['required'] ) && ! empty( $field['label_hide'] ) ) {
 					$required = wpforms_get_field_required_label();
 				}
@@ -283,8 +296,8 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 						'<label %s>%s%s</label>',
 						wpforms_html_attributes( $choice['label']['id'], $choice['label']['class'], $choice['label']['data'], $choice['label']['attr'] ),
 						wp_kses_post( $choice['label']['text'] ),
-						$required
-					); // WPCS: XSS ok.
+						wp_kses_post( $required )
+					);
 
 				echo '</li>';
 			}
@@ -303,10 +316,10 @@ class WPForms_Field_GDPR_Checkbox extends WPForms_Field {
 	 */
 	public function format( $field_id, $field_submit, $form_data ) {
 
-		wpforms()->get( 'process' )->fields[ $field_id ] = [
+		wpforms()->obj( 'process' )->fields[ $field_id ] = [
 			'name'  => ! empty( $form_data['fields'][ $field_id ]['label'] ) ? sanitize_text_field( $form_data['fields'][ $field_id ]['label'] ) : '',
 			'value' => $form_data['fields'][ $field_id ]['choices'][1]['label'],
-			'id'    => absint( $field_id ),
+			'id'    => wpforms_validate_field_id( $field_id ),
 			'type'  => $this->type,
 		];
 	}

@@ -1,5 +1,8 @@
 <?php
 
+// phpcs:ignore Generic.Commenting.DocComment.MissingShort
+/** @noinspection PhpUndefinedConstantInspection */
+
 namespace WPForms\Providers\Provider\Settings;
 
 use WPForms\Providers\Provider\Core;
@@ -28,6 +31,7 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 	 * @param Core $core Core provider object.
 	 */
 	public function __construct( Core $core ) {
+
 		$this->core = $core;
 
 		$this->ajax();
@@ -38,7 +42,7 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 	 *
 	 * @since 1.4.7
 	 */
-	protected function ajax() {
+	protected function ajax() { // phpcs:ignore WPForms.PHP.HooksMethod.InvalidPlaceForAddingHooks
 
 		// Remove provider from Settings Integrations tab.
 		add_action( "wp_ajax_wpforms_settings_provider_disconnect_{$this->core->slug}", [ $this, 'ajax_disconnect' ] );
@@ -64,7 +68,7 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 
 				<div class="wpforms-settings-provider-logo">
 					<i title="<?php esc_attr_e( 'Show Accounts', 'wpforms-lite' ); ?>" class="fa fa-chevron-<?php echo esc_attr( $arrow ); ?>"></i>
-					<img src="<?php echo esc_url( $this->core->icon ); ?>">
+					<img src="<?php echo esc_url( $this->core->icon ); ?>" alt="icon">
 				</div>
 
 				<div class="wpforms-settings-provider-info">
@@ -77,7 +81,10 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 						);
 						?>
 					</p>
-					<span class="connected-indicator green"><i class="fa fa-check-circle-o"></i>&nbsp;<?php esc_html_e( 'Connected', 'wpforms-lite' ); ?></span>
+					<span class="connected-indicator green">
+						<i class="fa fa-check-circle-o"></i>
+						<span><?php esc_html_e( 'Connected', 'wpforms-lite' ); ?></span>
+					</span>
 				</div>
 
 			</div>
@@ -139,20 +146,20 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 	}
 
 	/**
-	 * Display connected account.
+	 * Display a connected account.
 	 *
 	 * @since 1.7.5
 	 *
 	 * @param string $account_id Account ID.
 	 * @param array  $account    Account data.
 	 */
-	protected function display_connected_account( $account_id, $account ) {
+	protected function display_connected_account( $account_id, $account ) { // phpcs:ignore Generic.Metrics.CyclomaticComplexity.TooHigh
 
 		$account_connected = ! empty( $account['date'] )
 			? wpforms_date_format( $account['date'], '', true )
 			: esc_html__( 'N/A', 'wpforms-lite' );
 
-		echo '<li class="wpforms-clear">';
+		echo '<li>';
 
 		/**
 		 * Allow adding markup before connected account item.
@@ -174,8 +181,17 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 				$account_connected
 			)
 		);
+
+		if ( defined( 'WPFORMS_DEBUG' ) && WPFORMS_DEBUG ) {
+			$this->display_account_id_debug( $account_id );
+			$this->display_expires_in_debug( $account );
+		}
+
 		echo '</span>';
-		echo '<span class="remove"><a href="#" data-provider="' . esc_attr( $this->core->slug ) . '" data-key="' . esc_attr( $account_id ) . '">' . esc_html__( 'Disconnect', 'wpforms-lite' ) . '</a></span>';
+		echo(
+			'<span class="remove"><a href="#" data-provider="' . esc_attr( $this->core->slug ) . '" data-key="' .
+			esc_attr( $account_id ) . '">' . esc_html__( 'Disconnect', 'wpforms-lite' ) . '</a></span>'
+		);
 
 		/**
 		 * Allow adding markup after connected account item.
@@ -188,6 +204,41 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 		do_action( 'wpforms_providers_provider_settings_page_integrations_display_connected_account_item_after', $account_id, $account );
 
 		echo '</li>';
+	}
+
+	/**
+	 * Display the account ID for debugging purposes.
+	 *
+	 * @since 1.9.5
+	 *
+	 * @param mixed $account_id Account ID to display. If null, it displays 'no_id'.
+	 */
+	protected function display_account_id_debug( $account_id ): void {
+
+		echo ' <br />ID: ' . esc_html( $account_id ?? 'no_id' );
+	}
+
+	/**
+	 * Display the expiration information in debug mode.
+	 *
+	 * @since 1.9.5
+	 *
+	 * @param array $account The account information containing the 'expires_in' timestamp.
+	 */
+	protected function display_expires_in_debug( array $account ): void {
+
+		if ( empty( $account['expires_in'] ) ) {
+			return;
+		}
+
+		$valid_until_timestamp = $account['expires_in'];
+
+		if ( $valid_until_timestamp > time() ) {
+			$format      = sprintf( '%s \a\t %s', get_option( 'date_format' ), get_option( 'time_format' ) );
+			$valid_until = wpforms_datetime_format( $valid_until_timestamp, $format, true );
+
+			echo ' <br />Valid until: ' . esc_html( $valid_until ?? 'no_valid_until' );
+		}
 	}
 
 	/**
@@ -209,11 +260,13 @@ abstract class PageIntegrations implements PageIntegrationsInterface {
 		<div class="wpforms-settings-provider-accounts-connect">
 
 			<form>
-				<p><?php esc_html_e( 'Please fill out all of the fields below to add your new provider account.', 'wpforms-lite' ); ?></span></p>
-
-				<p class="wpforms-settings-provider-accounts-connect-fields">
-					<?php $this->display_add_new_connection_fields(); ?>
+				<p class="wpforms-settings-provider-accounts-connect-general-description">
+					<?php esc_html_e( 'Please fill out all of the fields below to add your new provider account.', 'wpforms-lite' ); ?>
 				</p>
+
+				<div class="wpforms-settings-provider-accounts-connect-fields">
+					<?php $this->display_add_new_connection_fields(); ?>
+				</div>
 
 				<?php $this->display_add_new_connection_submit_button(); ?>
 			</form>

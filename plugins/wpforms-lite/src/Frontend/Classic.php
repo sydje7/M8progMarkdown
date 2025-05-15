@@ -99,6 +99,13 @@ class Classic {
 				// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 				break;
 
+			case 'header_styled':
+			case 'footer_styled':
+				// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<div class="wpforms-error-container wpforms-error-styled-container"><div class="wpforms-error">' . wpautop( wpforms_sanitize_error( $error ) ) . '</div></div>';
+				// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+				break;
+
 			case 'recaptcha':
 				echo '<label id="wpforms-field_recaptcha-error" class="wpforms-error">' . wpforms_sanitize_error( $error ) . '</label>';
 				break;
@@ -139,7 +146,7 @@ class Classic {
 	public function field_container_open( $field, $form_data ) {
 
 		$container                     = $field['properties']['container'];
-		$container['data']['field-id'] = absint( $field['id'] );
+		$container['data']['field-id'] = wpforms_validate_field_id( $field['id'] );
 
 		printf(
 			'<div %s>',
@@ -313,7 +320,7 @@ class Classic {
 		if ( $description === true && ! empty( $settings['form_desc'] ) ) {
 			echo '<div class="wpforms-description">';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			echo wpforms_process_smart_tags( $settings['form_desc'], $form_data );
+			echo wpforms_process_smart_tags( $settings['form_desc'], $form_data, [], '', 'form-description' );
 			echo '</div>';
 		}
 

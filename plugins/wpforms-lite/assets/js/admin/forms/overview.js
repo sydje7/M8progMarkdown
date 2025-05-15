@@ -1,4 +1,4 @@
-/* global wpforms_admin, wpforms_forms_locator, wpforms_admin_forms_overview, Choices */
+/* global wpforms_admin, wpforms_forms_locator, wpforms_admin_forms_overview, Choices, wpf */
 /**
  * WPForms Forms Overview.
  *
@@ -125,7 +125,21 @@ WPFormsForms.Overview = WPFormsForms.Overview || ( function( document, window, $
 				.on( 'resize', _.debounce( app.adjustBulkEditTagsForm, 200 ) );
 
 			$( document )
-				.on( 'change', '.wpforms-manage-tags-items input', app.manageTagsItemChange );
+				.on( 'change', '.wpforms-manage-tags-items input', app.manageTagsItemChange )
+				.on( 'htmx:afterSwap', app.initTableNav );
+		},
+
+		/**
+		 * Re-init table after swapping the content.
+		 *
+		 * @since 1.9.3
+		 */
+		htmxAfterSettle() {
+			app.initElements();
+			app.initTableColumns();
+			app.initTagsFilter();
+			app.adjustBulkEditTagsForm();
+			app.initEditTagsBulkActionItem();
 		},
 
 		/**
@@ -141,13 +155,17 @@ WPFormsForms.Overview = WPFormsForms.Overview || ( function( document, window, $
 
 			var $link = $( this ),
 				url = $link.attr( 'href' ),
-				msg = $link.hasClass( 'delete-all' ) ?  wpforms_admin.form_delete_all_confirm : '';
+				msg = $link.hasClass( 'delete-all' ) ? wpforms_admin.form_delete_all_confirm : '',
+				type = $link.data( 'type' ) ?? '';
 
 			if ( msg === '' ) {
-				msg = $link.parent().hasClass( 'delete' ) ? wpforms_admin.form_delete_confirm : wpforms_admin.form_duplicate_confirm;
+				const duplicateMsg = type === 'template' ? wpforms_admin.template_duplicate_confirm : wpforms_admin.form_duplicate_confirm;
+				const deleteMsg = type === 'template' ? wpforms_admin.template_delete_confirm : wpforms_admin.form_delete_confirm;
+
+				msg = $link.parent().hasClass( 'delete' ) ? deleteMsg : duplicateMsg;
 			}
 
-			app.confirmModal( msg, { 'url': url } );
+			app.confirmModal( msg, { url } );
 		},
 
 		/**
@@ -565,6 +583,9 @@ WPFormsForms.Overview = WPFormsForms.Overview || ( function( document, window, $
 			// when Tags Filter has many selected tags which overflow the Choices.js control.
 			config.callbackOnInit = function() {
 				$select.closest( '.choices__inner' ).append( '<div class="choices__arrow"></div>' );
+
+				wpf.initMultipleSelectWithSearch( this );
+				wpf.showMoreButtonForChoices( this.containerOuter.element );
 			};
 
 			// Init or get Choices.js object instance.
@@ -617,19 +638,6 @@ WPFormsForms.Overview = WPFormsForms.Overview || ( function( document, window, $
 
 			el.$tagsFilterSelect.each( function() {
 				app.initChoicesJS( $( this ) );
-			} );
-
-			el.$tagsFilterSelect.on( 'change', function() {
-
-				var $choicesObj = el.$tagsFilterSelect.data( 'choicesjs' ),
-					$inputText = el.$tagsFilterSelect.siblings( 'input[type="text"]' );
-
-				// Hide placeholder if the Tags Filter is not empty and vice versa.
-				if ( $choicesObj.getValue( true ).length > 0 ) {
-					$inputText.attr( 'placeholder', '' );
-				} else {
-					$inputText.attr( 'placeholder', wpforms_admin_forms_overview.strings.all_tags );
-				}
 			} );
 		},
 

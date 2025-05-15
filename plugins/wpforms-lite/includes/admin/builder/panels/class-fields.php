@@ -137,18 +137,30 @@ class WPForms_Builder_Panel_Fields extends WPForms_Builder_Panel {
 				<div class="wpforms-title-desc">
 					<div class="wpforms-title-desc-inner">
 						<h2 class="wpforms-form-name">
-							<?php echo esc_html( isset( $this->form_data['settings']['form_title'] ) ? $this->form_data['settings']['form_title'] : $this->form->post_title ); ?>
+							<?php echo esc_html( $this->form_data['settings']['form_title'] ?? $this->form->post_title ); ?>
 						</h2>
 						<span class="wpforms-form-desc">
 							<?php
 							echo wp_kses(
-								isset( $this->form_data['settings']['form_desc'] ) ? $this->form_data['settings']['form_desc'] : $this->form->post_excerpt,
+								$this->form_data['settings']['form_desc'] ?? $this->form->post_excerpt,
 								wpforms_builder_preview_get_allowed_tags()
 							);
 							?>
 						</span>
 					</div>
 				</div>
+
+				<?php
+
+				/**
+				 * Fires after the fields panel (form preview) title.
+				 *
+				 * @since 1.9.4
+				 *
+				 * @param array $form_data Form data.
+				 */
+				do_action( 'wpforms_builder_panel_fields_panel_content_title_after', $this->form_data );
+				?>
 
 				<div class="wpforms-no-fields-holder wpforms-hidden">
 					<?php $this->no_fields_options(); ?>
@@ -348,7 +360,7 @@ class WPForms_Builder_Panel_Fields extends WPForms_Builder_Panel {
 
 		$class  = ! empty( $field['size'] ) ? 'size-' . esc_attr( $field['size'] ) : '';
 		$class .= ! empty( $field['label_hide'] ) ? ' label_hide' : '';
-		$class .= isset( $field['label'] ) && empty( $field['label'] ) && $field['type'] !== 'html' ? ' label_empty' : '';
+		$class .= isset( $field['label'] ) && empty( $field['label'] ) && ! in_array( $field['type'], [ 'html', 'content' ], true ) ? ' label_empty' : '';
 		$class .= ! empty( $field['sublabel_hide'] ) ? ' sublabel_hide' : '';
 		$class .= ! empty( $field['required'] ) ? ' required' : '';
 		$class .= isset( $field['meta']['delete'] ) && $field['meta']['delete'] === false ? ' no-delete' : '';
@@ -377,10 +389,10 @@ class WPForms_Builder_Panel_Fields extends WPForms_Builder_Panel {
 		}
 
 		printf(
-			'<div class="wpforms-field wpforms-field-%1$s %2$s" id="wpforms-field-%3$d" data-field-id="%3$d" data-field-type="%1$s">',
+			'<div class="wpforms-field wpforms-field-%1$s %2$s" id="wpforms-field-%3$s" data-field-id="%3$s" data-field-type="%1$s">',
 			esc_attr( $field['type'] ),
 			esc_attr( $class ),
-			absint( $field['id'] )
+			wpforms_validate_field_id( $field['id'] )
 		);
 
 		/**
@@ -499,8 +511,8 @@ class WPForms_Builder_Panel_Fields extends WPForms_Builder_Panel {
 		$field_id = isset( $field['id'] ) ? $field['id'] : 0;
 
 		printf(
-			'<div class="wpforms-alert wpforms-alert-warning wpforms-alert-dismissible wpforms-alert-field-not-available" data-field-id="%d" data-field-type="unavailable">',
-			absint( $field_id )
+			'<div class="wpforms-alert wpforms-alert-warning wpforms-alert-dismissible wpforms-alert-field-not-available" data-field-id="%s" data-field-type="unavailable">',
+			wpforms_validate_field_id( $field['id'] )
 		);
 
 		printf(
@@ -509,13 +521,13 @@ class WPForms_Builder_Panel_Fields extends WPForms_Builder_Panel {
 			</div>
 			<div class="wpforms-alert-buttons">
 				<a href="%2$s" target="_blank" rel="noopener noreferrer" class="wpforms-btn wpforms-btn-md wpforms-btn-light-grey">%3$s</a>
-				<button type="button" class="wpforms-dismiss-button" title="%4$s" data-field-id="%5$d" />
+				<button type="button" class="wpforms-dismiss-button" title="%4$s" data-field-id="%5$s" />
 			</div>',
 			$warning_message, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			'https://wpforms.com/docs/how-to-import-and-export-wpforms/#field-missing',
 			esc_html__( 'Learn More', 'wpforms-lite' ),
 			esc_attr__( 'Dismiss this message. The field will be deleted as well.', 'wpforms-lite' ),
-			absint( $field_id )
+			wpforms_validate_field_id( $field_id )
 		);
 
 		// Save unavailable fields data in hidden inputs.

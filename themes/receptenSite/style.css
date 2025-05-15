@@ -1,0 +1,31 @@
+/* 
+Theme name: receptenSite
+Author: Sydneycairo
+Version 1.0 
+*/
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: #ff9f30;
+    color: #333;
+}
+.recept-card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 10px;
+    background-color: #fff;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+}
+.filters {
+    margin-bottom: 20px;
+}
+.filter-btn {
+    margin: 4px;
+    background: #f28e1c;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}

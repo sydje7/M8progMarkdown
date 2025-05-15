@@ -31,26 +31,19 @@ class FunctionExtension extends AbstractExtension
     /**
      * {@inheritdoc}
      */
-    public function getFunctionTranslators()
+    public function getFunctionTranslators() : array
     {
-        return array('nth-child' => array($this, 'translateNthChild'), 'nth-last-child' => array($this, 'translateNthLastChild'), 'nth-of-type' => array($this, 'translateNthOfType'), 'nth-last-of-type' => array($this, 'translateNthLastOfType'), 'contains' => array($this, 'translateContains'), 'lang' => array($this, 'translateLang'));
+        return ['nth-child' => [$this, 'translateNthChild'], 'nth-last-child' => [$this, 'translateNthLastChild'], 'nth-of-type' => [$this, 'translateNthOfType'], 'nth-last-of-type' => [$this, 'translateNthLastOfType'], 'contains' => [$this, 'translateContains'], 'lang' => [$this, 'translateLang']];
     }
     /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     * @param bool         $last
-     * @param bool         $addNameTest
-     *
-     * @return XPathExpr
-     *
      * @throws ExpressionErrorException
      */
-    public function translateNthChild(XPathExpr $xpath, FunctionNode $function, $last = \false, $addNameTest = \true)
+    public function translateNthChild(XPathExpr $xpath, FunctionNode $function, bool $last = \false, bool $addNameTest = \true) : XPathExpr
     {
         try {
-            list($a, $b) = Parser::parseSeries($function->getArguments());
+            [$a, $b] = Parser::parseSeries($function->getArguments());
         } catch (SyntaxErrorException $e) {
-            throw new ExpressionErrorException(\sprintf('Invalid series: %s', \implode(', ', $function->getArguments())), 0, $e);
+            throw new ExpressionErrorException(\sprintf('Invalid series: "%s".', \implode('", "', $function->getArguments())), 0, $e);
         }
         $xpath->addStarPrefix();
         if ($addNameTest) {
@@ -75,7 +68,7 @@ class FunctionExtension extends AbstractExtension
         if (0 !== $b) {
             $expr .= ' - ' . $b;
         }
-        $conditions = array(\sprintf('%s %s 0', $expr, $sign));
+        $conditions = [\sprintf('%s %s 0', $expr, $sign)];
         if (1 !== $a && -1 !== $a) {
             $conditions[] = \sprintf('(%s) mod %d = 0', $expr, $a);
         }
@@ -88,35 +81,18 @@ class FunctionExtension extends AbstractExtension
         // -n means -1n
         // -1n+6 means elements 6 and previous
     }
-    /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     *
-     * @return XPathExpr
-     */
-    public function translateNthLastChild(XPathExpr $xpath, FunctionNode $function)
+    public function translateNthLastChild(XPathExpr $xpath, FunctionNode $function) : XPathExpr
     {
         return $this->translateNthChild($xpath, $function, \true);
     }
-    /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     *
-     * @return XPathExpr
-     */
-    public function translateNthOfType(XPathExpr $xpath, FunctionNode $function)
+    public function translateNthOfType(XPathExpr $xpath, FunctionNode $function) : XPathExpr
     {
         return $this->translateNthChild($xpath, $function, \false, \false);
     }
     /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     *
-     * @return XPathExpr
-     *
      * @throws ExpressionErrorException
      */
-    public function translateNthLastOfType(XPathExpr $xpath, FunctionNode $function)
+    public function translateNthLastOfType(XPathExpr $xpath, FunctionNode $function) : XPathExpr
     {
         if ('*' === $xpath->getElement()) {
             throw new ExpressionErrorException('"*:nth-of-type()" is not implemented.');
@@ -124,14 +100,9 @@ class FunctionExtension extends AbstractExtension
         return $this->translateNthChild($xpath, $function, \true, \false);
     }
     /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     *
-     * @return XPathExpr
-     *
      * @throws ExpressionErrorException
      */
-    public function translateContains(XPathExpr $xpath, FunctionNode $function)
+    public function translateContains(XPathExpr $xpath, FunctionNode $function) : XPathExpr
     {
         $arguments = $function->getArguments();
         foreach ($arguments as $token) {
@@ -142,14 +113,9 @@ class FunctionExtension extends AbstractExtension
         return $xpath->addCondition(\sprintf('contains(string(.), %s)', Translator::getXpathLiteral($arguments[0]->getValue())));
     }
     /**
-     * @param XPathExpr    $xpath
-     * @param FunctionNode $function
-     *
-     * @return XPathExpr
-     *
      * @throws ExpressionErrorException
      */
-    public function translateLang(XPathExpr $xpath, FunctionNode $function)
+    public function translateLang(XPathExpr $xpath, FunctionNode $function) : XPathExpr
     {
         $arguments = $function->getArguments();
         foreach ($arguments as $token) {
@@ -162,7 +128,7 @@ class FunctionExtension extends AbstractExtension
     /**
      * {@inheritdoc}
      */
-    public function getName()
+    public function getName() : string
     {
         return 'function';
     }

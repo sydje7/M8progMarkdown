@@ -102,6 +102,15 @@ var WPFormsElementorModern = window.WPFormsElementorModern || ( function( docume
 					app.updateCopyPasteContent( changedModel );
 				}
 			} );
+
+			// Update copy/paste content when form_id is changed and copyPasteJsonValue is not set.
+			settingsModel.on( 'change:form_id', ( changedModel ) => {
+				if ( ! changedModel.attributes.copyPasteJsonValue ) {
+					setTimeout( function() {
+						app.updateCopyPasteContent( changedModel );
+					}, 0 );
+				}
+			} );
 		},
 
 		/**
@@ -118,6 +127,7 @@ var WPFormsElementorModern = window.WPFormsElementorModern || ( function( docume
 			app.updateAccentColors( $scope, formId );
 			app.loadChoicesJS( $scope, formId );
 			app.initRichTextField( formId );
+			app.initRepeaterField( formId );
 		},
 
 		/**
@@ -287,10 +297,12 @@ var WPFormsElementorModern = window.WPFormsElementorModern || ( function( docume
 			const container = view.container;
 
 			if ( ! pasteAttributes ) {
-				elementorCommon.dialogsManager.createWidget( 'alert', {
-					message: wpformsElementorVars.strings.copy_paste_error,
-					headerMessage: wpformsElementorVars.strings.heads_up,
-				} ).show();
+				if ( copyPasteJsonValue ) {
+					elementorCommon.dialogsManager.createWidget( 'alert', {
+						message: wpformsElementorVars.strings.copy_paste_error,
+						headerMessage: wpformsElementorVars.strings.heads_up,
+					} ).show();
+				}
 
 				this.updateCopyPasteContent( model );
 
@@ -477,6 +489,39 @@ var WPFormsElementorModern = window.WPFormsElementorModern || ( function( docume
 					$el.data( 'choicesjs', choicesInstance );
 
 				} catch ( e ) {} // eslint-disable-line no-empty
+			} );
+		},
+
+		/**
+		 * Initialize Repeater field.
+		 *
+		 * @since 1.8.9
+		 *
+		 * @param {number} formId Form ID.
+		 */
+		initRepeaterField( formId ) {
+			const $rowButtons = $( `.wpforms-form[data-formid="${ formId }"] .wpforms-field-repeater > .wpforms-field-repeater-display-rows .wpforms-field-repeater-display-rows-buttons` );
+
+			// Get the label height and set the button position.
+			$rowButtons.each( function() {
+				const $cont = $( this );
+				const $label = $cont.siblings( '.wpforms-layout-column' )
+					.find( '.wpforms-field' ).first()
+					.find( '.wpforms-field-label' );
+				const labelStyle = window.getComputedStyle( $label.get( 0 ) );
+				const margin = labelStyle?.getPropertyValue( '--wpforms-field-size-input-spacing' ) || 0;
+				const height = $label.outerHeight() || 0;
+				const top = height + parseInt( margin, 10 ) + 10;
+
+				$cont.css( { top } );
+			} );
+
+			// Init buttons and descriptions for each repeater in each form.
+			$( `.wpforms-form[data-formid="${ formId }"]` ).each( function() {
+				const $repeater = $( this ).find( '.wpforms-field-repeater' );
+
+				$repeater.find( '.wpforms-field-repeater-display-rows-buttons' ).addClass( 'wpforms-init' );
+				$repeater.find( '.wpforms-field-repeater-display-rows:last .wpforms-field-description' ).addClass( 'wpforms-init' );
 			} );
 		},
 	};

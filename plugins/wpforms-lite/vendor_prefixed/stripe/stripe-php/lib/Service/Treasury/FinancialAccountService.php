@@ -3,13 +3,17 @@
 // File generated from our OpenAPI spec
 namespace WPForms\Vendor\Stripe\Service\Treasury;
 
+/**
+ * @phpstan-import-type RequestOptionsArray from \Stripe\Util\RequestOptions
+ * @psalm-import-type RequestOptionsArray from \Stripe\Util\RequestOptions
+ */
 class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractService
 {
     /**
      * Returns a list of FinancialAccounts.
      *
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *
@@ -20,11 +24,28 @@ class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractSer
         return $this->requestCollection('get', '/v1/treasury/financial_accounts', $params, $opts);
     }
     /**
+     * Closes a FinancialAccount. A FinancialAccount can only be closed if it has a
+     * zero balance, has no pending InboundTransfers, and has canceled all attached
+     * Issuing cards.
+     *
+     * @param string $id
+     * @param null|array $params
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
+     *
+     * @throws \Stripe\Exception\ApiErrorException if the request fails
+     *
+     * @return \Stripe\Treasury\FinancialAccount
+     */
+    public function close($id, $params = null, $opts = null)
+    {
+        return $this->request('post', $this->buildPath('/v1/treasury/financial_accounts/%s/close', $id), $params, $opts);
+    }
+    /**
      * Creates a new FinancialAccount. For now, each connected account can only have
      * one FinancialAccount.
      *
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *
@@ -39,7 +60,7 @@ class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractSer
      *
      * @param string $id
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *
@@ -54,7 +75,7 @@ class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractSer
      *
      * @param string $id
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *
@@ -69,7 +90,7 @@ class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractSer
      *
      * @param string $id
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *
@@ -84,7 +105,7 @@ class FinancialAccountService extends \WPForms\Vendor\Stripe\Service\AbstractSer
      *
      * @param string $id
      * @param null|array $params
-     * @param null|array|\Stripe\Util\RequestOptions $opts
+     * @param null|RequestOptionsArray|\Stripe\Util\RequestOptions $opts
      *
      * @throws \Stripe\Exception\ApiErrorException if the request fails
      *

@@ -98,12 +98,12 @@ abstract class WPForms_Builder_Panel {
 		// Load form if found.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$form_id    = isset( $_GET['form_id'] ) ? absint( $_GET['form_id'] ) : false;
-		$this->form = wpforms()->get( 'form' )->get( $form_id );
+		$this->form = wpforms()->obj( 'form' )->get( $form_id );
 
 		$this->form_data = $this->form ? wpforms_decode( $this->form->post_content ) : false;
 
 		// Get current revision, if available.
-		$revision = wpforms()->get( 'revisions' )->get_revision();
+		$revision = wpforms()->obj( 'revisions' )->get_revision();
 
 		// If we're viewing a valid revision, replace the form data so the Form Builder shows correct state.
 		if ( $revision && isset( $revision->post_content ) ) {
@@ -126,6 +126,10 @@ abstract class WPForms_Builder_Panel {
 			// Load panel loader enqueues.
 			add_action( 'admin_enqueue_scripts', [ $this, 'enqueues_loader' ] );
 		}
+
+
+		// Load payments panel enqueues.
+		add_action( 'wpforms_builder_enqueues', [ $this, 'enqueues_payments' ] );
 
 		// Load panel specific enqueues.
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueues' ], 15 );
@@ -187,6 +191,36 @@ abstract class WPForms_Builder_Panel {
 	}
 
 	/**
+	 * Enqueue assets for the payments panel.
+	 *
+	 * @since 1.9.5
+	 */
+	public function enqueues_payments() {
+
+		$min = wpforms_get_min_suffix();
+
+		wp_enqueue_script(
+			'wpforms-builder-payments-utils',
+			WPFORMS_PLUGIN_URL . "assets/js/admin/builder/payments-utils{$min}.js",
+			[ 'wpforms-builder' ],
+			WPFORMS_VERSION,
+			true
+		);
+
+		$strings = [
+			'payments_plan_placeholder'   => esc_html__( 'Plan Name', 'wpforms-lite' ),
+			'payments_disabled_recurring' => esc_html__( 'You can only use one payment type at a time. If you\'d like to enable Recurring Payments, please disable One-Time Payments.', 'wpforms-lite' ),
+			'payments_disabled_one_time'  => esc_html__( 'You can only use one payment type at a time. If you\'d like to enable One-Time Payments, please disable Recurring Payments.', 'wpforms-lite' ),
+		];
+
+		wp_localize_script(
+			'wpforms-builder-payments-utils',
+			'wpforms_builder_payments_utils',
+			$strings
+		);
+	}
+
+	/**
 	 * Primary panel button in the left panel navigation.
 	 *
 	 * @since 1.0.0
@@ -199,7 +233,7 @@ abstract class WPForms_Builder_Panel {
 		$active = $view === $this->slug ? 'active' : '';
 		?>
 
-		<button class="wpforms-panel-<?php echo esc_attr( $this->slug ); ?>-button <?php echo $active; ?>" data-panel="<?php echo esc_attr( $this->slug ); ?>">
+		<button class="wpforms-panel-<?php echo esc_attr( $this->slug ); ?>-button <?php echo esc_attr( $active ); ?>" data-panel="<?php echo esc_attr( $this->slug ); ?>">
 			<i class="fa <?php echo esc_attr( $this->icon ); ?>"></i>
 			<span><?php echo esc_html( $this->name ); ?></span>
 		</button>
@@ -230,7 +264,7 @@ abstract class WPForms_Builder_Panel {
 
 		printf( '<div class="%s" id="wpforms-panel-%s">', wpforms_sanitize_classes( $classes, true ), esc_attr( $this->slug ) );
 
-		printf( '<div class="%s">', $wrap );
+		printf( '<div class="%s">', esc_attr( $wrap ) );
 
 		if ( true === $this->sidebar ) {
 

@@ -103,7 +103,8 @@ class FormEmbedWizard {
 			'wpforms-admin-form-embed-wizard',
 			WPFORMS_PLUGIN_URL . "assets/js/admin/form-embed-wizard{$min}.js",
 			[ 'jquery', 'underscore' ],
-			WPFORMS_VERSION
+			WPFORMS_VERSION,
+			false
 		);
 
 		wp_localize_script(
@@ -167,7 +168,7 @@ class FormEmbedWizard {
 		static $challenge_active = null;
 
 		if ( $challenge_active === null ) {
-			$challenge        = wpforms()->get( 'challenge' );
+			$challenge        = wpforms()->obj( 'challenge' );
 			$challenge_active = method_exists( $challenge, 'challenge_active' ) ? $challenge->challenge_active() : false;
 		}
 
@@ -270,9 +271,35 @@ class FormEmbedWizard {
 	 */
 	public function get_embed_page_url_ajax() {
 
+		// Run a security check.
 		check_admin_referer( 'wpforms_admin_form_embed_wizard_nonce' );
 
+		// Check for permissions.
+		if ( ! wpforms_current_user_can( 'edit_forms' ) ) {
+			wp_send_json_error( esc_html__( 'You are not allowed to perform this action.', 'wpforms-lite' ) );
+		}
+
 		$page_id = ! empty( $_POST['pageId'] ) ? absint( $_POST['pageId'] ) : 0;
+		$meta    = $this->prepare_meta_data( $page_id );
+
+		$this->set_meta( $meta );
+
+		// Update challenge option to properly continue challenge on the embed page.
+		$this->update_challenge_option( $meta );
+
+		wp_send_json_success( $meta['url'] );
+	}
+
+	/**
+	 * Prepare meta data for the embed page.
+	 *
+	 * @since 1.9.4
+	 *
+	 * @param int $page_id Page ID.
+	 *
+	 * @return array
+	 */
+	private function prepare_meta_data( int $page_id ): array {
 
 		if ( ! empty( $page_id ) ) {
 			$url  = get_edit_post_link( $page_id, '' );
@@ -283,23 +310,32 @@ class FormEmbedWizard {
 			$url  = add_query_arg( 'post_type', 'page', admin_url( 'post-new.php' ) );
 			$meta = [
 				'embed_page'       => 0,
-				'embed_page_title' => ! empty( $_POST['pageTitle'] ) ? sanitize_text_field( wp_unslash( $_POST['pageTitle'] ) ) : '',
+				'embed_page_title' => ! empty( $_POST['pageTitle'] ) ? sanitize_text_field( wp_unslash( $_POST['pageTitle'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			];
 		}
 
-		$meta['form_id'] = ! empty( $_POST['formId'] ) ? absint( $_POST['formId'] ) : 0;
+		$meta['form_id'] = ! empty( $_POST['formId'] ) ? absint( $_POST['formId'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$meta['url']     = $url;
 
-		$this->set_meta( $meta );
+		return $meta;
+	}
 
-		// Update challenge option to properly continue challenge on the embed page.
+	/**
+	 * Update challenge option to properly continue challenge on the embed page.
+	 *
+	 * @since 1.9.4
+	 *
+	 * @param array $meta Meta data.
+	 */
+	private function update_challenge_option( array $meta ): void {
+
 		if ( $this->is_challenge_active() ) {
-			$challenge = wpforms()->get( 'challenge' );
-			if ( method_exists( $challenge, 'set_challenge_option' ) ) {
+			$challenge = wpforms()->obj( 'challenge' );
+
+			if ( $challenge && method_exists( $challenge, 'set_challenge_option' ) ) {
 				$challenge->set_challenge_option( [ 'embed_page' => $meta['embed_page'] ] );
 			}
 		}
-
-		wp_send_json_success( $url );
 	}
 
 	/**
@@ -414,6 +450,11 @@ class FormEmbedWizard {
 			);
 		}
 
+		// Check for permissions.
+		if ( ! wpforms_current_user_can( 'edit_forms' ) ) {
+			wp_send_json_error( esc_html__( 'You are not allowed to perform this action.', 'wpforms-lite' ) );
+		}
+
 		if ( ! array_key_exists( 'search', $_GET ) ) {
 			wp_send_json_error(
 				[
@@ -435,32 +476,5 @@ class FormEmbedWizard {
 		}
 
 		wp_send_json_success( $result_pages );
-	}
-
-	/**
-	 * Excludes pages from dropdown which user can't edit.
-	 *
-	 * @since 1.6.6
-	 * @deprecated 1.7.9
-	 *
-	 * @param WP_Post[] $pages Array of page objects.
-	 *
-	 * @return WP_Post[]|false Array of filtered pages or false.
-	 */
-	public function remove_inaccessible_pages( $pages ) {
-
-		_deprecated_function( __METHOD__, '1.7.9 of the WPForms plugin' );
-
-		if ( ! $pages ) {
-			return $pages;
-		}
-
-		foreach ( $pages as $key => $page ) {
-			if ( ! current_user_can( 'edit_page', $page->ID ) ) {
-				unset( $pages[ $key ] );
-			}
-		}
-
-		return $pages;
 	}
 }
